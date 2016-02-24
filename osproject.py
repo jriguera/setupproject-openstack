@@ -7,7 +7,7 @@ groups, routers, quotas and other features like:
 
 * It is able to setup filters in aggregates metadata for specific projects
 * It is able to allocate a range of floating IPs from a pool to a project
-* It is idempotent, run as many times as you need (but id does not do rollback!)
+* It is idempotent, run as many times as you need (but it does not do rollback!)
 * It reads all the configuration from a Yaml file
 
 """
