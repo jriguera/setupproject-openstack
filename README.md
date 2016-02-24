@@ -80,14 +80,15 @@ v0.1.0, 2016 Jose Riguera jriguera@gmail.com
 
 At the top you will see a kind of "error", it is not important, it is only the 
 configuration file for logging. with the default settings all the messages 
-with level equal INFO will be shown. To avoid the "error", just copy the 
-sample logging file: `cp logging.conf.sample logging.conf`
+with level equal *INFO* will be shown. To avoid the "error", just copy the 
+sample logging file: 
+`cp logging.conf.sample logging.conf`
 
-The program is able to read the `OS_*` environment variables used for the 
+The program is able to read the **OS_** environment variables used for the 
 OpenStack clients, there is an `openrc.sh.sample` example file you can use to 
 edit the admin credentials and load within the env `. openrc.sh.sample`.
 
-But, I think is better just define a configuration file ...
+But, I think is better if we define a configuration file ...
 
 
 # Configuration file
@@ -101,7 +102,7 @@ called `osproject.yml.sample` which makes use of Yaml anchors to help having
 a kind of defaults, but lets focus on the sections of the configuration file:
 
 * `auth`: defines the admin credentials to setup a session with OpenStack.
-Those variables can be loaded from the environment `OS` variables.
+Those variables can be loaded from the environment OS variables.
 
 ```yaml
 auth:
