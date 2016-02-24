@@ -81,7 +81,8 @@ v0.1.0, 2016 Jose Riguera jriguera@gmail.com
 At the top you will see a kind of "error", it is not important, it is only the 
 configuration file for logging. with the default settings all the messages 
 with level equal *INFO* will be shown. To avoid the "error", just copy the 
-sample logging file: 
+sample logging file:
+
 `cp logging.conf.sample logging.conf`
 
 The program is able to read the **OS_** environment variables used for the 
@@ -160,19 +161,19 @@ projects:
           admin: "admin"
     cinder:
       quotas:
-        gigabytes: 1111
-        volumes: 11
-        backups: 22
-        snapshots: 33
-        backupgb: 2222
+      	gigabytes: 1111
+      	volumes: 11
+      	backups: 22
+      	snapshots: 33
+      	backupgb: 2222
     nova:
       quotas:
-        instances: 3
-	cores: 1
-	ram_mb: 1
+      	instances: 3
+      	cores: 1
+      	ram_mb: 1
       aggregates:
-        az: Dordrecht
-        aggregate: kvm.dogo
+      	az: Dordrecht
+      	aggregate: kvm.dogo
     neutron:
       secgroups:
         - name: default
@@ -184,9 +185,9 @@ projects:
               port_range_min: 22
               direction: ingress
       quotas:
-        networks: 90
-	ports: 91
-	subnets: 92
+      	networks: 90
+      	ports: 91
+      	subnets: 92
 	routers: 93
 	floating_ips: 94
       networks:
@@ -204,7 +205,7 @@ The `roles` section defines the assigments between users and/or groups and the
 roles within the project context. 
 
 In `nova`, the `aggregates` section has two optional parameters `az` and 
-`aggregate`, they are used to setup the metadata fiter `tenant_id` for the 
+`aggregate`, they are used to setup the metadata filter `tenant_id` for the 
 nova scheduler in order to reserver specific compute hosts for the project 
 (`aggregate` parameter should be enough in most of the cases, but you can
 specify both).
@@ -212,16 +213,21 @@ specify both).
 In `neutron`, apart of the quotas, you can define additional rules in the 
 security groups to allow connectivity to the VM. Also, it is possible to
 pre-allocate a specific range of floating IPs for the project from a public
-pool by the `floating_ip` parameter (`pool`: `ip-range`). Note, it is not 
-enough setup the quotas according to that to limit the floating IPs per 
-project, an user can release an IP and request another one, the proper way 
-to do it is by defining roles (like manager) and editing the policy files. 
-`networks` is a list of internal networks, if `public` is not provided, no
-internal router will be created. 
+pool by the `floating_ip` section (with the format `pool-name`: `ip-range`). 
+Note, it is not enough setup the quotas according to that to limit the 
+floating IPs per project, an user can release an IP and request another one, 
+the proper way to do it is by defining roles (like manager) and editing the 
+policy files. `networks` defines a list of internal networks, if `public` 
+is not provided, no internal router will be created (just an internal isolated
+network). All the routers are created with HA. 
 
 
+# Output
 
-# Output log
+The program shows on the standard output the messages regarding creation or 
+modification of the resources (ofc, also the errors). Also, the return code
+will be different than zero if there were errors (with the exception of
+warnings in case of floating IP allocation failures).
 
 Ouput log file example `osproject.log` with `logging.conf.sample` configuration:
 
