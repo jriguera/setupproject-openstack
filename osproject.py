@@ -217,6 +217,7 @@ class Program(object):
             'auth_url', 
             'region_name', 
             'user_domain_name',
+            'project_domain_name',
             'cacert'
     	]
     	for var in auth_vars:
@@ -272,9 +273,9 @@ class OpenStackProject(object):
                     auth = ks_auth.Password(auth_url=self.auth_url,
                                             username=admauth['username'],
                                             password=admauth['password'],
-                                            project_name=admauth['project'],
-                                            user_domain_name=admauth['domain'],
-					    project_domain_name=admauth['domain'])
+                                            project_name=admauth['project_name'],
+                                            user_domain_name=admauth['user_domain_name'],
+					    project_domain_name=admauth['project_domain_name'])
                 else:
                     msg = "Token or auth settings not defined"
                     self.logger.error(msg)
@@ -334,71 +335,117 @@ class OpenStackProject(object):
 
 
     def setup_domain(self, domain='default', desc=None):
-	try:
-	    return self.ks.domains.find(name=domain)
+        try:
+            return self.ks.domains.find(name=domain)
         except ks_exceptions.NotFound:
             self.logger.debug("Domain '%s' not found! creating ..." % domain)
             d = self.ks.domains.create(domain, desc)
             self.logger.info("Created domain %s with id '%s'" % (domain, d.id))
-            return d            
+            return d.id
         except ks_exceptions.NoUniqueMatch:
-	    self.logger.error("Domain '%s' not unique!" % domain)
-	    raise
-	except ks_exceptions.ClientException as e:
-	    self.logger.error("Searching for domain '%s': %s" % (domain, e))
-	    raise
+	        self.logger.error("Domain '%s' not unique!" % domain)
+	        raise
+        except ks_exceptions.ClientException as e:
+            self.logger.error("Searching for domain '%s': %s" % (domain, e))
+            raise
 
 
     def setup_user(self, name, password, email=None, desc=None, domain='default'):
-	user_id = None
-	try:
-	    user_id = self.ks.users.find(domain=domain, name=name)
-	except ks_exceptions.NotFound as e:
-	    self.logger.debug("User '%s' not found, creating ..." % name)
-            user_id = self.ks.users.create(name=name, password=password, 
-                      email=email, description=desc, domain=domain)
-	    self.logger.info("Created user %s with id '%s'" % (name, user_id))
-	except ks_exceptions.NoUniqueMatch as e:
-	    self.logger.error("User '%s' not unique!" % name)
-	    raise
-	return user_id
+        user_id = None
+        try:
+	        user_id = self.ks.users.find(domain=domain, name=name)
+        except ks_exceptions.NotFound as e:
+            self.logger.debug("User '%s' not found, creating ..." % name)
+            user_id = self.ks.users.create(name=name, password=password, email=email, description=desc, domain=domain)
+            self.logger.info("Created user %s with id '%s'" % (name, user_id.id))
+        except ks_exceptions.NoUniqueMatch as e:
+            self.logger.error("User '%s' not unique!" % name)
+            raise
+        return user_id
 
 
     def setup_group(self, name, desc=None, domain='default'):
-	group_id = None
-	try:
-	    group_id = self.ks.groups.find(domain=domain, name=name)
+        group_id = None
+        try:
+            group_id = self.ks.groups.find(domain=domain, name=name)
         except ks_exceptions.NotFound as e:
-	    self.logger.debug("Group '%s' not found, creating ..." % name)
+            self.logger.debug("Group '%s' not found, creating ..." % name)
             group_id = self.ks.groups.create(name=name, description=desc, domain=domain)
-	    self.logger.info("Created group %s with id '%s'" % (name, group_id))
-	except ks_exceptions.NoUniqueMatch as e:
-	    self.logger.error("Group '%s' not unique!" % name)
-	    raise
-	return group_id
+            self.logger.info("Created group %s with id '%s'" % (name, group_id.id))
+        except ks_exceptions.NoUniqueMatch as e:
+            self.logger.error("Group '%s' not unique!" % name)
+            raise
+        return group_id
 
 
     def setup_role(self, role, desc, domain='default'):
-	role_id = None
-	try:
+        role_id = None
+        try:
             role_id = self.ks.roles.find(domain=domain, name=role)
         except ks_exceptions.NotFound as e:
-	    self.logger.debug("Role '%s' not found, creating ..." % role)
+            self.logger.debug("Role '%s' not found, creating ..." % role)
             role_id = self.ks.roles.create(name=role, description=desc, domain=domain)
-	    self.logger.info("Created role %s with id '%s'" % (role, role_id))
-	except ks_exceptions.NoUniqueMatch as e:
-	    self.logger.error("Role '%s' not unique!" % role)
-	    raise
-	return role_id
+            self.logger.info("Created role %s with id '%s'" % (role, role_id.id))
+        except ks_exceptions.NoUniqueMatch as e:
+            self.logger.error("Role '%s' not unique!" % role)
+            raise
+        return role_id
 
 
-    def setup_domain_groups(self, groups=[], domain='default', domain_desc='Default'):
-        self.setup_domain(domain, domain_desc)
-        groups_defined = []
-	for group in groups:
-            group_id = self.setup_group(group, None, domain)
-            groups_defined.append(group_id)
-        return groups_defined
+    def setup_user_project_roles(self, user, project_id, roles={}, domain='default'):
+        try:
+            current_roles = [ r.name for r in self.ks.roles.list(domain=domain, user_id=user.id) ]
+        except ks_exceptions.NotFound as e:
+            msg = "Cannot find user '%s': %s"
+            self.logger.error(msg % (user.name, e))
+            raise
+        for role_name, role_desc in roles.items():
+            if role_name in current_roles:
+                self.logger.debug("User %s already granted the role '%s'" % (user.name, role_name))
+                continue
+            try:
+                role = self.setup_role(role_name, role_desc, domain)
+                self.ks.roles.grant(role=role.id, user=user.id, project=project_id)
+                msg = "Granted role '%s' to user '%s' for project '%s'"
+                self.logger.info(msg % (role_name, user.name, project_id))
+            except ks_exceptions.ClientException as e:
+                msg = "Cannot grant user '%s' with role '%s': %s"
+                self.logger.error(msg % (user.id, role_name, e))
+
+
+    def setup_group_project_roles(self, group, project_id, roles={}, domain='default'):
+        try:
+            current_roles = [ r.name for r in self.ks.roles.list(domain=domain, group_id=group.id) ]
+        except ks_exceptions.NotFound as e:
+            msg = "Cannot find group '%s': %s"
+            self.logger.error(msg % (group.name, e))
+            raise
+        for role_name, role_desc in roles.items():
+            if role_name in current_roles:
+                self.logger.debug("Group %s already granted the role '%s'" % (group.name, role_name))
+                continue
+            try:
+                role = self.setup_role(role_name, role_desc, domain)
+                self.ks.roles.grant(role=role.id, group=group.id, project=project_id)
+                msg = "Granted role '%s' to group '%s' for project '%s'"
+                self.logger.info(msg % (role_name, group.name, project_id))
+            except ks_exceptions.ClientException as e:
+                msg = "Cannot grant group '%s' with role '%s': %s"
+                self.logger.error(msg % (group.id, role_name, e))
+
+
+    def setup_user_groups(self, user, group_ids=[], domain='default'):
+        current_groups_id = [g.id for g in self.ks.groups.list(domain=domain, user=user.id)]
+        for group_id in group_ids:
+            if group_id in current_groups_id:
+                self.logger.debug("User %s already in group '%s'" % (user.name, group_id))
+                continue
+            try:
+                self.ks.users.add_to_group(user.id, group_id)
+                self.logger.info("User %s added to group '%s'" % (user.name, group_id))
+            except ks_exceptions.ClientException as e:
+                msg = "Cannot add user '%s' to group '%s': %s"
+                self.logger.error(msg % (user.id, group_id, e))
 
 
     def setup_users(self, users=[], domain='default'):
@@ -411,15 +458,11 @@ class OpenStackProject(object):
             udomain = user.get('domain', domain)
             groups = user.get('groups', [])
             user_id = self.setup_user(name, password, mail, desc, udomain)
-            groups_id = self.setup_domain_groups(groups, udomain)
-            for group_id in groups_id:
-            	try:
-            	    if not self.ks.users.check_in_group(user_id, group_id):
-                    	self.ks.users.add_to_group(user_id, group_id)
-                        self.logger.info("User %s added to group '%s'" % (name, group_id))
-                except ks_exceptions.ClientException as e:
-                    msg = "Cannot add user '%s' to group '%s': %s"
-                    self.logger.error(msg % (name, group_id, e))
+            group_ids = []
+            for group in groups:
+                gr = self.setup_group(group, None, udomain)
+                group_ids.append(gr.id)
+            self.setup_user_groups(user_id, group_ids, udomain)
             users_defined.append(user_id)
         return users_defined
 
@@ -429,49 +472,44 @@ class OpenStackProject(object):
         for gr in groups:
             name = gr['name']
             desc = gr.get('description', None)
-            gdomain = user.get('domain', domain)
+            gdomain = gr.get('domain', domain)
             group_id = self.setup_group(name, desc, gdomain)
             groups_defined.append(group_id)
         return groups_defined
 
 
     def setup_project(self, name, desc, roles={}, domain='default'):
-	try:
+        try:
             project = self.ks.projects.find(domain=domain, name=name)
         except ks_exceptions.NotFound as e:
-	    self.logger.debug("Project '%s' not found, creating ..." % role)
+            self.logger.debug("Project '%s' not found, creating ..." % name)
             project = self.ks.projects.create(name=name, description=desc, domain=domain)
             self.logger.info("Created project %s with id '%s'" % (name, project.id))
-	except ks_exceptions.NoUniqueMatch as e:
-	    self.logger.error("Project '%s' not unique!" % name)
-	    raise
-	except ks_exceptions.ClientException as e:
-	    self.logger.error("Cannot search for project '%s': %s" % (name, e))
+        except ks_exceptions.NoUniqueMatch as e:
+            self.logger.error("Project '%s' not unique!" % name)
             raise
+        except ks_exceptions.ClientException as e:
+            self.logger.error("Cannot search for project '%s': %s" % (name, e))
+            raise
+        else:
+            self.logger.debug("Project '%s' found: %s" % (name, project.id))
         project_id = project.id
         if 'groups' in roles:
             for group, groles in roles['groups'].items():
                 try:
-            	    group_id = self.ks.groups.find(domain=domain, name=group)
-       	    	except ks_exceptions.NotFound as e:
-            	    self.logger.error("Group '%s' not found" % group)
+                    group_id = self.ks.groups.find(domain=domain, name=group)
+                except ks_exceptions.NotFound as e:
+                    self.logger.error("Group '%s' not found" % group)
                 else:
-                    for role, role_desc in groles.items():
-                    	role_id = self.setup_role(role, role_desc, domain)
-                    	self.ks.roles.grant(role=role_id, group=group_id, project=project_id)
-                    	self.logger.debug("Setup group %s with role %s" % (group, role))
+                    self.setup_group_project_roles(group_id, project_id, groles, domain)
         if 'users' in roles:
             for user, uroles in roles['users'].items():
-            	try:
+                try:
             	    user_id = self.ks.users.find(domain=domain, name=user)
-       	    	except ks_exceptions.NotFound as e:
+       	        except ks_exceptions.NotFound as e:
             	    self.logger.error("User '%s' not found" % user)
                 else:
-                    for role, role_desc in uroles.items():
-                    	role_id = self.setup_role(role, role_desc, domain)
-                    	self.ks.roles.grant(role=role_id, user=user_id, project=project_id)
-                        self.logger.debug("Setup user %s with role %s" % (user, role))
-	self.logger.info("Created project '%s' with id: %s" % (name, project_id))
+                    self.setup_user_project_roles(user_id, project_id, uroles, domain)
         return project_id
 
 
@@ -510,7 +548,7 @@ class OpenStackProject(object):
             network = self.neutron.create_network({'network': net})
             net_id = network['network']['id']
         except neutron_exceptions.NeutronClientException as e:
-	    self.logger.error("Cannot create network '%s': %s" % (name, e))
+            self.logger.error("Cannot create network '%s': %s" % (name, e))
             raise
         self.logger.info("Network '%s' created with id '%s'" % (name, net_id))
         return net_id
@@ -531,7 +569,7 @@ class OpenStackProject(object):
                 self.logger.debug("Subnet '%s' found with id '%s'" % (name, subnet_id))
                 return subnet_id
         except neutron_exceptions.NeutronClientException as e:
-	    self.logger.error("Cannot search for subnets: %s" % e)
+            self.logger.error("Cannot search for subnets: %s" % e)
             raise
         try:
             subnet = {
@@ -572,9 +610,10 @@ class OpenStackProject(object):
                 router_id = routers['routers'][0]['id']
                 self.logger.debug("Router '%s' found with id '%s'" % (name, router_id))
         except neutron_exceptions.NeutronClientException as e:
-	    self.logger.error("Cannot search for routers: %s" % e)
+            self.logger.error("Cannot search for routers: %s" % e)
             raise
         if not router_id:
+            self.logger.debug("Creating router '%s' ..." % (name))
             router = {
                 'name': name,
                 'tenant_id': project_id,
@@ -590,7 +629,7 @@ class OpenStackProject(object):
             	r = self.neutron.create_router({'router': router})
             	router_id = r['router']['id']
             except neutron_exceptions.NeutronClientException as e:
-	        self.logger.error("Cannot create router '%s': %s" % (name, e))
+                self.logger.error("Cannot create router '%s': %s" % (name, e))
                 raise
             self.logger.info("Router '%s' created with id '%s'" % (name, subnet_id))
         # gw port
@@ -611,18 +650,18 @@ class OpenStackProject(object):
                                 self.logger.debug(msg % (subnet_id, subnetgw_id))
                                 break
             except neutron_exceptions.NeutronClientException as e:
-		self.logger.error("Cannot search for network ports: %s" % e)
+                self.logger.error("Cannot search for network ports: %s" % e)
                 raise
             if not subnetgw_id:
+                msg = "Defining internal gw for '%s' on router '%s'"
+                self.logger.debug(msg % (subnet_id, name))
                 try:
-                    port = self.neutron.add_interface_router(router_id, 
-			{'subnet_id': subnet_id}
-                    )
+                    port = self.neutron.add_interface_router(router_id, {'subnet_id': subnet_id})
                     subnetgw_id = port['port_id']
+                    self.logger.info("Gw for '%s' on router '%s' defined" % (subnet_id, name))
                 except neutron_exceptions.NeutronClientException as e:
-		    self.logger.error("Cannot add gw to router '%s': %s" % (name, e))
+                    self.logger.error("Cannot add gw to router '%s': %s" % (name, e))
                     raise
-            self.logger.info("Internal gw for '%s' on router '%s' defined" % (subnet_id, name))
         return (router_id, subnetgw_id)
 
 
@@ -658,23 +697,21 @@ class OpenStackProject(object):
                 networks = self.neutron.list_networks(**search)
                 publicnet_id = networks['networks'][0]['id']
             except neutron_exceptions.NeutronClientException as e:
-		self.logger.error("Cannot find '%s': %s" % (publicnet_name, e))
+                self.logger.error("Cannot find '%s': %s" % (publicnet_name, e))
                 raise
             except Exception as e:
-		self.logger.error("Public network '%s' not found!" % publicnet_name)
+                self.logger.error("Public network '%s' not found!" % publicnet_name)
                 raise
             msg = "Public network '%s' found with id '%s'"
             self.logger.debug(msg % (publicnet_name, publicnet_id)) 
-        net_id = self.setup_network(net_name, project_id, net_type, 
-                 segmentation_id, physical_net)
-        subnet_id = self.setup_subnet(subnet_name, project_id, 
-            net_id, net_cidr, net_gw, net_nameservers, net_allocation_ips, net_dhcp)
+        net_id = self.setup_network(net_name, project_id, net_type, segmentation_id, 
+                                    physical_net)
+        subnet_id = self.setup_subnet(subnet_name, project_id, net_id, net_cidr, 
+                                      net_gw, net_nameservers, net_allocation_ips, net_dhcp)
         # If is a external network, these resources are not needed
         if not physical_net and publicnet_id:
             router = self.setup_router(router_name, project_id, publicnet_id, subnet_id)
-            router_id = router[0]
-        msg = "Network stack '%s' created for project '%s'"
-        self.logger.info(msg % (name, project_id))    
+            router_id = router[0]    
         return (net_id, subnet_id, router_id)
 
 
@@ -683,78 +720,93 @@ class OpenStackProject(object):
         pass
 
 
-    def add_project_aggregate(self, name, project_id):
+    def add_project_aggregate(self, project_id, name='', az=''):
         self._get_nova_client()
         try:
-	    aggregates = self.nova.aggregates.list()
+            aggregates = self.nova.aggregates.list()
         except nova_exceptions.ClientException as e:
             self.logger.error("Cannot search for aggregate: %s" % e)
             raise
         done = False
-	for agg in aggregates:
-            if agg.metadata['availability_zone'] == name:
-		metadata = agg.metadata
-		try:
-		    project_list = metadata['filter_tenant_id'].split(',')
-		    projects = [ p.strip(' ') for p in project_list ]
-		except:
-		    projects = []
-		    if project_id not in projects:
-			projects.append(str(project_id))
-			metadata['filter_tenant_id'] = ', '.join(projects)
-			self.nova.aggregates.set_metadata(agg.id, metadata)
-		    else:
-                        msg = "Project id '%s' already in aggregate '%s'"
-			self.logger.debug(msg % (project_id, name))
-                    msg = "Project id '%s' added to aggregate '%s'"
-		    self.logger.info(msg % (project_id, name))
-                    done = True
-		    break
-	    else:
-	        self.logger.error("Aggregate '%s' not found!" % name)
+        for agg in aggregates:            
+            if name and agg.name != name:
+                continue
+            if az and agg.metadata['availability_zone'] != az:
+                continue
+            metadata = agg.metadata
+            try:
+                project_list = metadata['filter_tenant_id'].split(',')
+                projects = [ p.strip(' ') for p in project_list ]
+            except:
+                projects = []
+            if project_id not in projects:
+                projects.append(str(project_id))
+                metadata['filter_tenant_id'] = ', '.join(projects)
+                self.nova.aggregates.set_metadata(agg.id, metadata)
+                msg = "Project id '%s' added to aggregate '%s'"
+                self.logger.info(msg % (project_id, agg.name))
+            else:
+                msg = "Project id '%s' already in aggregate '%s'"
+                self.logger.debug(msg % (project_id, agg.name))
+            done = True
+        if not done:
+            msg = "Aggregate '%s' " % name if name else ''
+            msg = msg + "AZ '%s' " % az if az else msg
+            self.logger.info(msg + " not found!")
         return done 
 
 
-    def setup_secgroup_ingress(self, name, project_id, rules=[]):
-        self._get_nova_client()
+    def setup_secgroup(self, name, desc, project_id, rules=[]):
+        self._get_neutron_client()
+        sg_id = None
+        sg_def = {
+            'name': name,
+            'tenant_id': project_id
+        }
         try:
-            search = {
-                'name': name,
-                'all_tenants': 1,
-                'tenant_id': project_id
-            }
-            sec_groups = self.nova.security_groups.findall(**search)
-            sg = sec_groups[0]
-            sg_id = sg.id
-            self.logger.debug("Security group '%s' found with id '%s'" % (name, sg_id))
-        except nova_exceptions.ClientException as e:
+            sec_groups = self.neutron.list_security_groups(**sg_def)
+            if sec_groups['security_groups']:
+                sg = sec_groups['security_groups'][0]
+                sg_id = sg['id']
+                self.logger.debug("Security group '%s' found with id '%s'" % (name, sg_id))
+        except neutron_exceptions.NeutronClientException as e:
             self.logger.error("Cannot search for security groups: %s" % e)
             raise
-        except Exception as e:
-            sg = self.nova.security_groups.create(name)
-            sg_id = sg.id
-            msg = "Security group '%s' not found! ... created: %s"
-            self.logger.error(msg % (name, sg_id))
+        if not sg_id:
+            msg = "Security group '%s' not found! ... creating"
+            self.logger.debug(msg % (name))
+            try:
+                if desc:
+                    sg_def['description'] = desc
+                sec_groups = self.neutron.create_security_group({'security_group': sg_def})
+                sg_id = sec_groups['security_group']['id']
+                msg = "Security group '%s' created with id '%s'"
+                self.logger.info(msg % (name, sg_id))
+            except neutron_exceptions.NeutronClientException as e:
+                self.logger.error("Cannot create security group: %s" % e)
+                raise
         sgrules = []
-        for sgrule in sg.rules:
+        for sgrule in sg['security_group_rules']:
             rule = [
-                sgrule['ip_protocol'],
-                sgrule['ip_range']['cidr'] if sgrule['ip_range'] else '',
-                sgrule['to_port'],
-            	sgrule['from_port']
+                sgrule['direction'],
+                sgrule['protocol'] if sgrule['protocol'] else '',
+                sgrule['remote_ip_prefix'] if sgrule['remote_ip_prefix'] else '',
+                sgrule['port_range_max'] if sgrule['port_range_max'] else '',
+            	sgrule['port_range_min'] if sgrule['port_range_min'] else ''
             ]
             sgrules.append(rule)
         addrules = []
         for rule in rules:
             try:
             	r1 = [
-                    rule['protocol'],
+                    rule.get('direction', 'ingress'),
+                    rule.get('protocol', 'tcp'),
                     rule.get('cidr', '0.0.0.0/0'),
-                    rule.get('to_port', -1),
-                    rule.get('from_port', rule.get('to_port', -1))
+                    rule.get('port_range_max', -1),
+                    rule.get('port_range_min', rule.get('port_range_max', -1))
             	]
             	for r2 in sgrules:
-                    diff = [i for i in range(4) if r1[i] != r2[i]]
+                    diff = [i for i in range(5) if r1[i] != r2[i]]
                     if not diff: break
                 else:
                     addrules.append(r1)
@@ -764,16 +816,25 @@ class OpenStackProject(object):
         error = False
         for rule in addrules:
             self.logger.debug('Adding security group rule: %s' % rule)
+            sg_rule_def = {
+                'security_group_id': sg_id,
+                'direction': rule[0],
+                'protocol': rule[1],
+                'remote_ip_prefix': rule[2],
+                'port_range_max': rule[3],
+                'port_range_min': rule[4],               
+            }
             try:
-            	self.nova.security_group_rules.create(sg_id,
-            	    ip_protocol=rule[0], cidr=rule[1], 
-                    to_port=rule[2], from_port=rule[3])
-            except nova_exceptions.ClientException as e:
-                msg = "Cannot add rule '%s' to security groups '%s': %s"
-            	self.logger.error(msg % (rule, sg_id, e))
+                sec_group_rule = self.neutron.create_security_group_rule({'security_group_rule': sg_rule_def})
+                sg_rule_id = sec_group_rule['security_group_rule']['id']
+                msg = "Security group rule '%s' created with id '%s'"
+                self.logger.info(msg % (rule, sg_rule_id))
+            except neutron_exceptions.NeutronClientException as e:
+                self.logger.error("Cannot create security group rule: %s" % e)
             	error = True
-        msg = "Added %d rules to security group %s in project id '%s'"
-        self.logger.info(msg % (len(addrules), name, project_id))
+        if len(addrules) > 0:
+            msg = "Added %d rules to security group %s in project id '%s'"
+            self.logger.info(msg % (len(addrules), name, project_id))
         return error
 
 
@@ -804,8 +865,7 @@ class OpenStackProject(object):
         except Exception as e:
             self.logger.error("Cannot parse network CIDR %s: %s" % (cidr, e)) 
             raise
-        else:
-            self.logger.debug("Allocating CIDR %s in '%s'" % (net_cidr, publicnet_id))
+        self.logger.debug("Allocating CIDR %s in '%s'" % (net_cidr, publicnet_id))
         allocated = []
         errors = []
         search = { 'tenant_id': project_id }
@@ -819,21 +879,20 @@ class OpenStackProject(object):
             	    'floating_ip_address': str(ip)
     	        }
     	    	try:
-        	    result = self.neutron.create_floatingip({'floatingip': fip})
+                    result = self.neutron.create_floatingip({'floatingip': fip})
                     fip_id = result['floatingip']['id']
                     msg = "Floating IP %s successfully allocated with id '%s'"
                     self.logger.info(msg % (ip, fip_id))
                     allocated.append(ip)
-	    	except Exception as e:
+                except Exception as e:
                     msg = "Cannot allocate floating IP %s: %s"
                     self.logger.error(msg % (ip, e))
                     errors.append(ip)
             else:
-		self.logger.debug("Floating IP %s already allocated" % ip)
+                self.logger.debug("Floating IP %s already allocated" % ip)
         msg = "Floating IP(s) allocated for project id '%s': %s"
-        self.logger.info(msg % (project_id, len(allocated)))
+        self.logger.debug(msg % (project_id, len(allocated)))
         return allocated
-
 
 
     def setup_cinder_quotas(self, project_id, gigabytes=None, volumes=None, backups=None,
@@ -874,17 +933,17 @@ class OpenStackProject(object):
         if updated:
             try:
                 self.cinder.quotas.update(project_id, backup_gigabytes=qs['backup_gigabytes'], 
-					  gigabytes=qs['gigabytes'], volumes=qs['volumes'], 
+                                          gigabytes=qs['gigabytes'], volumes=qs['volumes'], 
                                           snapshots=qs['snapshots'], backups=qs['backups'])
             except nova_exceptions.ClientException as e:
                 msg = "Unable to setup new Cinder quotas for project id '%s': %s"
-	    	self.logger.error(msg % (project_id, e))
+                self.logger.error(msg % (project_id, e))
                 raise
             msg = "Cinder quotas updated successfully for project id '%s'"
             self.logger.info(msg % project_id)
-	else:
+        else:
             msg = "Cinder quotas update not needed for project id '%s'"
-            self.logger.info(msg % project_id)
+            self.logger.debug(msg % project_id)
         return updated
 
 
@@ -907,8 +966,7 @@ class OpenStackProject(object):
             qs['ram'] = ram
             updated = True
         if floating_ips is not None and qs['floating_ips'] != floating_ips:
-            self.logger.debug(msg % ('floating_ips', project_id, 
-                              qs['floating_ips'], floating_ips))
+            self.logger.debug(msg % ('floating_ips', project_id,  qs['floating_ips'], floating_ips))
             qs['floating_ips'] = floating_ips
             updated = True
         if updated:
@@ -918,13 +976,13 @@ class OpenStackProject(object):
                                         floating_ips=qs['floating_ips'])
             except nova_exceptions.ClientException as e:
                 msg = "Unable to setup new Nova quotas for project id '%s': %s"
-	    	self.logger.error(msg % (project_id, e))
+                self.logger.error(msg % (project_id, e))
                 raise
             msg = "Nova quotas updated successfully for project id '%s'"
             self.logger.info(msg % project_id)
-	else:
+        else:
             msg = "Nova quotas update not needed for project id '%s'"
-            self.logger.info(msg % project_id)
+            self.logger.debug(msg % project_id)
         return updated
 
  
@@ -960,28 +1018,27 @@ class OpenStackProject(object):
             	self.neutron.update_quota(project_id, {'quota': qs})
             except neutron_exceptions.NeutronClientException as e:
                 msg = "Unable to setup new Neutron quotas for project id '%s': %s"
-	    	self.logger.error(msg % (project_id, e))
+                self.logger.error(msg % (project_id, e))
                 raise
             msg = "Neutron quotas updated successfully for project id '%s'"
             self.logger.info(msg % project_id)
-	else:
+        else:
             msg = "Neutron quotas update not needed for project id '%s'"
-            self.logger.info(msg % project_id)
+            self.logger.debug(msg % project_id)
         return updated
 
 
 
 def project_nova(osproject, project_id, pr_nova):
-    if 'az' in pr_nova:
-        osproject.add_project_aggregate(pr_nova['az'], project_id)
-    if 'secgroups' in pr_nova:
-        for pr_nova_segg, pr_nova_segrules in pr_nova['secgroups']
-	    osproject.setup_secgroup_ingress(pr_nova_segg, project_id, pr_nova_segrules)
+    if 'aggregates' in pr_nova:
+        pr_nova_agg_az = pr_nova['aggregates'].get('az', '')
+        pr_nova_agg_agg = pr_nova['aggregates'].get('aggregate', '')
+        osproject.add_project_aggregate(project_id, pr_nova_agg_agg, pr_nova_agg_az)
     if 'quotas' in pr_nova:
         pr_nova_quota_instances = pr_nova['quotas'].get('instances', None)
         pr_nova_quota_cores = pr_nova['quotas'].get('cores', None)
         pr_nova_quota_ram = pr_nova['quotas'].get('ram', None)
-	osproject.setup_nova_quotas(project_id, pr_nova_quota_instances, 
+        osproject.setup_nova_quotas(project_id, pr_nova_quota_instances, 
                                     pr_nova_quota_cores, pr_nova_quota_ram)
 
 
@@ -993,7 +1050,8 @@ def project_cinder(osproject, project_id, pr_cinder):
         pr_cinder_q_snapshots = pr_cinder['quotas'].get('snapshots', None)
         pr_cinder_q_backup_gb = pr_cinder['quotas'].get('backupgb', None)
         osproject.setup_cinder_quotas(project_id, pr_cinder_q_gb, pr_cinder_q_volumes, 
-		pr_cinder_q_backups, pr_cinder_q_snapshots, pr_cinder_q_backup_gb)
+		                              pr_cinder_q_backups, pr_cinder_q_snapshots, 
+		                              pr_cinder_q_backup_gb)
 
 
 def project_neutron(osproject, project_id, pr_neutron):
@@ -1007,21 +1065,28 @@ def project_neutron(osproject, project_id, pr_neutron):
         pr_neutron_net_segid = pr_neutron_net.get('segid', None)
         pr_neutron_net_physical = pr_neutron_net.get('physical', None)
         osproject.setup_networking(pr_neutron_net_name, project_id, 
-                pr_neutron_net_dns, pr_neutron_net_public, pr_neutron_net_dhcp, 
-                pr_neutron_net_cidr, pr_neutron_net_type, pr_neutron_net_segid, 
-                pr_neutron_net_physical)
+                                   pr_neutron_net_dns, pr_neutron_net_public, 
+                                   pr_neutron_net_dhcp, pr_neutron_net_cidr, 
+                                   pr_neutron_net_type, pr_neutron_net_segid, 
+                                   pr_neutron_net_physical)
     if 'floatingips' in pr_neutron:
-    	for pr_neutron_fips_pool, pr_neutron_fips_ips in pr_neutron.get('floatingips', {}):
-            osproject.add_project_floatingips(project_id, pr_neutron_fips_pool, 
-                                              pr_neutron_fips_ips)
+    	for pr_neutron_fips_pool, pr_neutron_fips_ips in pr_neutron.get('floatingips', {}).items():
+            osproject.add_project_floatingips(project_id, pr_neutron_fips_pool, pr_neutron_fips_ips)
+    if 'secgroups' in pr_neutron:
+        for pr_neutron_seg in pr_neutron['secgroups']:
+            pr_neutron_seg_name = pr_neutron_seg['name']
+            pr_neutron_seg_desc = pr_neutron_seg.get('description', '')
+            pr_neutron_seg_rules = pr_neutron_seg.get('rules', [])            
+            osproject.setup_secgroup(pr_neutron_seg_name, pr_neutron_seg_desc, 
+	                                 project_id, pr_neutron_seg_rules)
     if 'quotas' in pr_neutron:
         pr_neutron_q_net = pr_neutron['quotas'].get('networks', None)
         pr_neutron_q_port = pr_neutron['quotas'].get('ports', None)
         pr_neutron_q_subnet = pr_neutron['quotas'].get('subnets', None)
         pr_neutron_q_router = pr_neutron['quotas'].get('routers', None)
         pr_neutron_q_fpis = pr_neutron['quotas'].get('floatingips', None)
-	osproject.setup_neutron_quotas(project_id, pr_neutron_q_fpis, pr_neutron_q_router, 
-                pr_neutron_q_subnet, pr_neutron_q_net, pr_neutron_q_ports)
+        osproject.setup_neutron_quotas(project_id, pr_neutron_q_fpis, pr_neutron_q_router, 
+                                       pr_neutron_q_subnet, pr_neutron_q_net, pr_neutron_q_port)
 
 
 
@@ -1030,15 +1095,11 @@ def main():
     program = Program()
     config = program.parse_config()
     
-    print("--------")
-    pprint.pprint(config)
-    print("--------")
-
     auth = config['auth']
-    domain = auth['domain']
+    domain = auth['project_domain_name']
     os = OpenStackProject(auth['auth_url'], auth, logger=program.logger)
-    os.setup_users(config['users'], domain)
     os.setup_groups(config['groups'], domain)
+    os.setup_users(config['users'], domain)
 
     for project in config['projects']:
         project_name = project['name']
