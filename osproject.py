@@ -1,9 +1,9 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 """
-Program to manage OpenStack projects by providing the creation of resourcers 
-to start working on them: users, groups, roles, networks, security groups, 
-routers, quotas and other features like:
+Program to manage OpenStack projects by automating the creation of resourcers 
+in order to start working on them: users, groups, roles, networks, security 
+groups, routers, quotas and other features like:
 
 * It is able to setup filters in aggregates metadata for specific projects
 * It is able to allocate a range of floating IPs from a pool to a project
