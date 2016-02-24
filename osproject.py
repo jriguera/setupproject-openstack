@@ -781,7 +781,7 @@ class OpenStackProject(object):
     def setup_networking(self, name, project_id, net_nameservers=[], 
                          publicnet_name=None, net_dhcp=True, cidr='10.0.0.0/16', 
                          cidr_range=None, net_type=None, segmentation_id=None, 
-                         physical_net=None):
+                         physical_net=None, ha_router=True):
         self._get_neutron_client()
         net_name = "%s-net" % name
         subnet_name = "%s-subnet" % name
@@ -836,7 +836,7 @@ class OpenStackProject(object):
         # If is a external network, these resources are not needed
         if not physical_net and publicnet_id:
             router = self.setup_router(
-                router_name, project_id, publicnet_id, subnet_id)
+                router_name, project_id, publicnet_id, subnet_id, ha_router)
             router_id = router[0]    
         return (net_id, subnet_id, router_id)
 
@@ -1215,10 +1215,12 @@ def project_neutron(osproject, project_id, neutron):
         neutron_net_type = neutron_net.get('type', None)
         neutron_net_segid = neutron_net.get('segmentation_id', None)
         neutron_net_physical = neutron_net.get('physical', None)
+        neutron_net_harouter = bool(neutron_net.get('ha_router', True))
         osproject.setup_networking(
             neutron_net_name, project_id, neutron_net_dns, neutron_net_public, 
             neutron_net_dhcp, neutron_net_cidr, neutron_net_range,
-            neutron_net_type, neutron_net_segid, neutron_net_physical)
+            neutron_net_type, neutron_net_segid, neutron_net_physical,
+            neutron_net_harouter)
     if 'floating_ips' in neutron:
         neutron_fips = neutron.get('floating_ips', {})
     	for neutron_fips_pool, neutron_fips_ips in neutron_fips.items():

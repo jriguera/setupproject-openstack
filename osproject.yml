@@ -70,6 +70,8 @@ neutron_network: &neutron_default_network
     dns:
       - 8.8.8.8
     type: vlan
+    dhcp: 1
+    ha_router: 1
 
 neutron: &neutron_default
   secgroups:
