@@ -118,6 +118,7 @@ projects:
         jose-test-1:
           _member_: "dashboard"
           Member: "users"
+          admin: "admin"
         jose-test-2: 
           Member: "users"
       users:
