@@ -1,0 +1,24 @@
+export LC_ALL=C
+
+# COMMON CINDER ENVS
+export CINDER_ENDPOINT_TYPE=internalURL
+
+# COMMON NOVA ENVS
+export NOVA_ENDPOINT_TYPE=internalURL
+
+# COMMON OPENSTACK ENVS
+export OS_ENDPOINT_TYPE=internalURL
+export OS_USERNAME="admin"
+export OS_PASSWORD="admin"
+export OS_PROJECT_NAME="admin"
+# NOTE(sigmavirus24): The tenant name setting should be removed when
+# python-cinderclient stops checking for it and failing if it doesn't exist.
+export OS_TENANT_NAME="admin"
+export OS_AUTH_URL=http://1.2.3.4:5000/v3
+export OS_NO_CACHE=1
+export OS_USER_DOMAIN_NAME=Default
+export OS_PROJECT_DOMAIN_NAME=Default
+
+# For openstackclient
+export OS_IDENTITY_API_VERSION=3
+export OS_AUTH_VERSION=3
