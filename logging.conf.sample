@@ -1,0 +1,33 @@
+version: 1
+
+formatters:
+  stdout:
+    format: '%(name)s %(levelname)s: %(message)s'
+  logfile:
+    format: '%(asctime)s %(name)s [%(levelname)s] %(message)s'
+
+handlers:
+  console:
+    class: logging.StreamHandler
+    level: INFO
+    formatter: stdout
+    stream: 'ext://sys.stdout'
+  file:
+    class: logging.FileHandler
+    level: DEBUG
+    formatter: logfile
+    filename: osproject.log
+
+loggers:
+  osproject:
+    level: DEBUG
+    handlers: 
+      - console
+      - file
+    propagate: no
+
+root:
+  level: DEBUG
+  handlers:
+    - file
+
