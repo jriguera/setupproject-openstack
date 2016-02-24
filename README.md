@@ -139,7 +139,7 @@ users:
       - jose-test-admin
 ```
 
-* and finally `project` a list of projects with all the parameters:
+* and finally `projectd`, a list of projects with all the parameters:
 
 ```yaml
 projects:
