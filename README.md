@@ -115,7 +115,7 @@ auth:
   auth_url: "http://1.1.1.1:5000/v3/"
 ```
 
-* `groups`: defines a list of groups, just name and description.
+* `groups`: defines a list of groups, only name and description.
 
 ```yaml
 groups:
