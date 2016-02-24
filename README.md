@@ -194,9 +194,11 @@ projects:
         - name: jose-test1
           public: online_dev
           cidr: "10.10.0.0/24"
+          dhcp: 1
           dns:
             - 8.8.8.8
           type: vlan
+          ha_router: 1
       floating_ips:
         online_dev: '10.230.18.14/31'
 ```
@@ -219,7 +221,7 @@ floating IPs per project, an user can release an IP and request another one,
 the proper way to do it is by defining roles (like manager) and editing the 
 policy files. `networks` defines a list of internal networks, if `public` 
 is not provided, no internal router will be created (just an internal isolated
-network). All the routers are created with HA. 
+network). All the routers are created with HA (`ha_router` parameter) by default. 
 
 
 # Output
