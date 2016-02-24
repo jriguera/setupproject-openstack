@@ -9,7 +9,7 @@ groups, routers, quotas and other features like:
 * It is idempotent, run as many times as you need (but id does not do rollback!)
 * It reads all the configuration from a Yaml file
 
-*This program does not delete resources*, everytime it runs, it tries to setup 
+**This program does not delete resources**, everytime it runs, it tries to setup 
 all resources defined by the Yaml configuration file. That means, those 
 resources can have additional settings (other users, more rules on the security 
 groups, other networks, ...) and those additional settings will not be changed,
@@ -22,10 +22,10 @@ First, install all the python requirements, not many, only yaml, ipcalc and
 the python openstack libraries: `pip install -r requirements.txt`. It does not
 use other kind of libraries.
 
-*It was tested on OpenStack Liberty and it uses Keystone v3 API for sessions.* 
+**It was tested on OpenStack Liberty and it uses Keystone v3 API for sessions.** 
 
 ```
-python osproject.py --help
+# python osproject.py --help
 Error with 'logging.conf': [Errno 2] No such file or directory: u'logging.conf'
 osproject: Using default logging settings
 usage: osproject.py [-h] [-d DOMAIN] [-c CONFIG] [--group NAME DESCRIPTION]
