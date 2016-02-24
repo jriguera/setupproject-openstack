@@ -1,0 +1,141 @@
+# Example config
+
+## Auth settings. Env variables have preference!
+################################################
+
+auth:
+  user_domain_name: Default
+  project_domain_name: Default
+  region_name: RegionOne
+# Read from env variables: (using openrc.sh)
+#  username: admin
+#  password: admin
+#  project_name: admin
+#  auth_url: "http://1.1.1.1:5000/v3/"
+
+
+## Groups
+#########
+
+# groups: []
+groups:
+  - name: jose-test-1
+    description: "test group1"
+  - name: jose-test-2
+    description: "test group2"
+
+
+# Users
+#######
+
+# users: []
+users:
+  - name: jose1
+    email: jose1@springer.com
+    password: hola1
+    groups:
+      - jose-test-1
+  - name: jose2
+    email: jose2@springer.com
+    password: hola2
+    groups:
+      - jose-test-2
+
+
+## Defaults anchors and definitions
+###################################
+
+# Neutron
+
+neutron_quotas: &neutron_default_quotas
+  networks: 90
+  ports: 91
+  subnets: 92
+  routers: 93
+  floating_ips: 94
+
+neutron_secgroups: &neutron_default_secgroups
+  - name: default
+    description: default
+    rules:
+      - protocol: tcp
+        cidr: "0.0.0.0/0"
+        port_range_max: 22
+        port_range_min: 22
+        direction: ingress
+
+neutron_network: &neutron_default_network
+    public: online_dev
+    cidr: "10.10.0.0/24"
+    dns:
+      - 8.8.8.8
+    type: vlan
+
+neutron: &neutron_default
+  secgroups:
+    - <<: *neutron_default_secgroups
+  quotas:
+    <<: *neutron_default_quotas
+  networks:
+    - name: default
+      <<: *neutron_default_network
+
+
+# Cinder
+
+cinder_quotas: &cinder_default_quotas
+  gigabytes: 1111
+  volumes: 11
+  backups: 22
+  snapshots: 33
+  backupgb: 2222
+
+cinder: &cinder_default
+  quotas:
+    <<: *cinder_default_quotas
+
+
+# Nova
+
+nova_quotas: &nova_default_quotas
+  instances: 3
+  cores: 1
+  ram_mb: 1
+
+nova: &nova_default
+  quotas:
+    <<: *nova_default_quotas
+
+
+## Project list
+###############
+
+projects:
+  - name: jose-test
+    description: "Jose test test"
+    roles:
+      groups:
+        jose-test-1:
+          _member_: "dashboard"
+          Member: "users"
+        jose-test-2: 
+          Member: "users"
+      users:
+        jose1:
+          role_jose_1: "user role"
+    cinder:
+      <<: *cinder_default
+    nova:
+      <<: *nova_default
+      aggregates:
+        az: Dordrecht
+        aggregate: kvm.dogo
+    neutron:
+      <<: *neutron_default
+      floating_ips:
+        online_dev: '10.230.18.14/31'
+      networks:
+        - name: jose-test1
+          <<: *neutron_default_network
+
+
