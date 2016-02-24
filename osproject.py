@@ -33,9 +33,6 @@ from argparse import RawTextHelpFormatter
 import ipcalc 
 import yaml
 
-import pprint
-
-
 from keystoneclient.auth.identity import v3 as ks_auth
 from keystoneclient.auth import token_endpoint as ks_token
 from keystoneclient import session as ks_session
