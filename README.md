@@ -310,5 +310,5 @@ Ouput log file example `osproject.log` with `logging.conf.sample` configuration:
 
 ## Author
 
-José Riguera López <jriguera@gmail.com>
+José Riguera López, jriguera@gmail.com>
 
