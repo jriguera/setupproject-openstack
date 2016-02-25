@@ -334,7 +334,7 @@ class OpenStackProject(object):
                         password=admauth['password'],
                         project_name=admauth['project_name'],
                         user_domain_name=admauth['user_domain_name'],
-					    project_domain_name=admauth['project_domain_name'])
+                        project_domain_name=admauth['project_domain_name'])
                 else:
                     msg = "Token or auth settings not defined"
                     self.logger.error(msg)
@@ -1293,6 +1293,7 @@ def main():
     rcode = 30 if pr_error else 0
     logger.info("Finished! (%d)" % rcode)
     return rcode
+
 
 if __name__ == '__main__':
     sys.exit(main())
