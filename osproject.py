@@ -230,6 +230,23 @@ class ProgramCli(object):
     	    help="Aggregate to attach the project")
 
 
+    @staticmethod
+    def dict_overwrite(base, default={}):
+        """Creates a new dictionary overwriting the values from the
+           default dictionary completing with the base key/values.
+        """
+        # clone current level
+        new = default.copy()
+        for key,value in base.items():
+            if isinstance(value, list):
+                new[key] = value[:]
+            elif isinstance(value, dict):
+                new[key] = dict_override(value, default.get(key, {}))
+            else:
+                new[key] = value
+        return new
+
+
     def parse_config(self, arguments=None):
     	args = self.parser.parse_args(arguments)
         try:
@@ -257,7 +274,7 @@ class ProgramCli(object):
             for pr in projects:
                 try:
             	    if pr['name'] == arg_pr['name']:
-            	    	pr = dict_overwrite(arg_pr, pr)
+            	    	pr = self.dict_overwrite(arg_pr, pr)
                     new_prs.append(pr)
             	except:
                     msg = "Yaml configuration file not valid!"
@@ -286,23 +303,6 @@ class ProgramCli(object):
             raise ValueError(msg)
         config['auth'] = auth
         return config
-
-
-
-def dict_overwrite(base, default={}):
-    """Creates a new dictionary overwriting the values from the 
-       default dictionary completing with the base key/values.
-    """ 
-    # clone current level
-    new = default.copy()
-    for key,value in base.items():
-    	if isinstance(value, list):
-            new[key] = value[:]
-        elif isinstance(value, dict):
-            new[key] = dict_override(value, default.get(key, {}))
-       	else:
-	    new[key] = value
-    return new
 
 
 
