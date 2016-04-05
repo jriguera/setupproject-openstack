@@ -71,12 +71,12 @@ class ProgramCli(object):
 
     class ProjectsAction(argparse.Action):
     	def __call__(self, parser, namespace, values, option_string=None):
-	        data = {
-	        	'name': values[0],
+            data = {
+                'name': values[0],
                 'domain': namespace.domain,
-	        	'description': values[1],
+                'description': values[1],
             }
-	        namespace.project.append(data)
+	    namespace.project.append(data)
 
     class GroupAction(argparse.Action):
     	def __call__(self, parser, namespace, values, option_string=None):
@@ -116,7 +116,7 @@ class ProgramCli(object):
     class UserGroupsAction(argparse.Action):
     	def __call__(self, parser, namespace, values, option_string=None):
             try:
-	            namespace.users[-1]['groups'] = values
+	        namespace.users[-1]['groups'] = values
             except:
                 parser.error('Missing user!')
 
